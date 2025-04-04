@@ -1,13 +1,3 @@
-/*************************************************************
- * ESP32 + L298N + Async WebSocket Control 
- * Press-and-hold logic: motors run while button is pressed,
- * and stop when button is released.
- *
- * Wi-Fi credentials: 
- *   SSID: TimeisaRiver
- *   PASS: qwer1234
- *************************************************************/
-
 #include <WiFi.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
@@ -17,85 +7,107 @@ const char* ssid = "TimeisaRiver";
 const char* password = "qwer1234";
 
 // ---- Define Motor Control Pins (GPIO) ----
-// (Adjust pins if needed for your wiring.)
-#define IN1  26
-#define IN2  27
-#define IN3  32
-#define IN4  33
+#define ENA  12  // Left Motor Speed (PWM)
+#define ENB  14  // Right Motor Speed (PWM)
+#define IN1  26  // Left Motor Forward
+#define IN2  27  // Left Motor Backward
+#define IN3  32  // Right Motor Forward
+#define IN4  33  // Right Motor Backward
+
+// Default speed (0-255)
+int leftSpeed = 200;
+int rightSpeed = 200;
 
 // Create Async Web Server on port 80
 AsyncWebServer server(80);
-// WebSocket endpoint at "/ws"
 AsyncWebSocket ws("/ws");
 
-// HTML/JS Page: uses onmousedown/up + ontouchstart/end to send commands
+// HTML/JS Page (Same as before, no changes needed)
 const char index_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>ESP32 Press-Hold Motor Control</title>
+  <title>ESP32 Motor Control</title>
   <style>
-    button {
-      width: 120px; height: 60px; font-size: 16px; margin: 5px;
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background-color: #f4f4f4;
     }
+    h1 {
+      color: #333;
+    }
+    .btn-container {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
+      max-width: 400px;
+      margin: auto;
+    }
+    .btn {
+      width: 100px;
+      height: 60px;
+      font-size: 16px;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .btn:active {
+      transform: scale(0.9);
+    }
+    .forward { background: #4CAF50; color: white; }
+    .backward { background: #FF5722; color: white; }
+    .left { background: #2196F3; color: white; }
+    .right { background: #FFC107; color: white; }
+    .stop { background: #F44336; color: white; }
   </style>
 </head>
 <body>
-  <h1>DC Motor Control (Press-Hold Logic)</h1>
+  <h1>ESP32 Motor Control</h1>
+  <div class="btn-container">
+    <button class="btn forward" 
+      onmousedown="sendCmd('FORWARD')" 
+      onmouseup="sendCmd('STOP')" 
+      ontouchstart="sendCmd('FORWARD')" 
+      ontouchend="sendCmd('STOP')">
+      FORWARD
+    </button>
 
-  <button 
-    onmousedown="sendCmd('FORWARD')" 
-    onmouseup="sendCmd('STOP')" 
-    ontouchstart="sendCmd('FORWARD')" 
-    ontouchend="sendCmd('STOP')">
-    FORWARD
-  </button>
-  <br/>
+    <button class="btn left" 
+      onmousedown="sendCmd('LEFT')" 
+      onmouseup="sendCmd('STOP')" 
+      ontouchstart="sendCmd('LEFT')" 
+      ontouchend="sendCmd('STOP')">
+      LEFT
+    </button>
 
-  <button 
-    onmousedown="sendCmd('BACKWARD')" 
-    onmouseup="sendCmd('STOP')" 
-    ontouchstart="sendCmd('BACKWARD')" 
-    ontouchend="sendCmd('STOP')">
-    BACKWARD
-  </button>
-  <br/>
+    <button class="btn right" 
+      onmousedown="sendCmd('RIGHT')" 
+      onmouseup="sendCmd('STOP')" 
+      ontouchstart="sendCmd('RIGHT')" 
+      ontouchend="sendCmd('STOP')">
+      RIGHT
+    </button>
 
-  <button 
-    onmousedown="sendCmd('LEFT')" 
-    onmouseup="sendCmd('STOP')" 
-    ontouchstart="sendCmd('LEFT')" 
-    ontouchend="sendCmd('STOP')">
-    LEFT
-  </button>
-  <button 
-    onmousedown="sendCmd('RIGHT')" 
-    onmouseup="sendCmd('STOP')" 
-    ontouchstart="sendCmd('RIGHT')" 
-    ontouchend="sendCmd('STOP')">
-    RIGHT
-  </button>
-  <br/>
+    <button class="btn backward" 
+      onmousedown="sendCmd('BACKWARD')" 
+      onmouseup="sendCmd('STOP')" 
+      ontouchstart="sendCmd('BACKWARD')" 
+      ontouchend="sendCmd('STOP')">
+      BACKWARD
+    </button>
 
-  <!-- Optional separate STOP button if needed -->
-  <button onclick="sendCmd('STOP')">STOP</button>
+    <button class="btn stop" onclick="sendCmd('STOP')">STOP</button>
+  </div>
 
   <script>
-    // Create a WebSocket connection to the ESP32
     const socket = new WebSocket(`ws://${location.host}/ws`);
-
-    socket.onopen = () => {
-      console.log('WebSocket connected');
-    };
-
-    socket.onmessage = (event) => {
-      console.log('Received from ESP32:', event.data);
-    };
-
-    socket.onclose = () => {
-      console.log('WebSocket disconnected');
-    };
+    socket.onopen = () => console.log('WebSocket connected');
+    socket.onmessage = (event) => console.log('Received:', event.data);
+    socket.onclose = () => console.log('WebSocket disconnected');
 
     function sendCmd(cmd) {
       console.log('Sending command:', cmd);
@@ -107,11 +119,14 @@ const char index_html[] PROGMEM = R"rawliteral(
 )rawliteral";
 
 // ---------- Motor Control Functions ----------
+// Set motor speed and direction
 void motorStop() {
   digitalWrite(IN1, LOW);
   digitalWrite(IN2, LOW);
   digitalWrite(IN3, LOW);
   digitalWrite(IN4, LOW);
+  analogWrite(ENA, 0);
+  analogWrite(ENB, 0);
 }
 
 void motorForward() {
@@ -119,6 +134,8 @@ void motorForward() {
   digitalWrite(IN2, LOW);
   digitalWrite(IN3, HIGH);
   digitalWrite(IN4, LOW);
+  analogWrite(ENA, leftSpeed);
+  analogWrite(ENB, rightSpeed);
 }
 
 void motorBackward() {
@@ -126,34 +143,39 @@ void motorBackward() {
   digitalWrite(IN2, HIGH);
   digitalWrite(IN3, LOW);
   digitalWrite(IN4, HIGH);
+  analogWrite(ENA, leftSpeed);
+  analogWrite(ENB, rightSpeed);
 }
 
 void motorLeft() {
-// Left motor backward, right motor forward
-  digitalWrite(IN1, LOW);
-  digitalWrite(IN2, HIGH);
+  // Reduce right motor speed for smooth left turn
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
   digitalWrite(IN3, HIGH);
   digitalWrite(IN4, LOW);
+  analogWrite(ENA, leftSpeed * 0.6);  // Reduce left speed
+  analogWrite(ENB, rightSpeed);       // Full right speed
 }
 
 void motorRight() {
-  // Left motor forward, right motor backward
+  // Reduce left motor speed for smooth right turn
   digitalWrite(IN1, HIGH);
   digitalWrite(IN2, LOW);
-  digitalWrite(IN3, LOW);
-  digitalWrite(IN4, HIGH);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+  analogWrite(ENA, leftSpeed);       // Full left speed
+  analogWrite(ENB, rightSpeed * 0.6); // Reduce right speed
 }
 
-// -------- Handle Incoming WebSocket Messages --------
+// -------- Handle WebSocket Messages --------
 void handleWebSocketMessage(void* arg, uint8_t* data, size_t len) {
   AwsFrameInfo* info = (AwsFrameInfo*) arg;
   if (info->opcode == WS_TEXT) {
-    // Convert bytes to String
     String cmd;
     for (size_t i = 0; i < len; i++) {
       cmd += (char) data[i];
     }
-    Serial.printf("Received command: %s\n", cmd.c_str());
+    Serial.printf("Received: %s\n", cmd.c_str());
 
     // Execute motor actions
     if (cmd == "FORWARD") {
@@ -164,10 +186,10 @@ void handleWebSocketMessage(void* arg, uint8_t* data, size_t len) {
       ws.textAll("Motors BACKWARD");
     } else if (cmd == "LEFT") {
       motorLeft();
-      ws.textAll("Motors LEFT");
+      ws.textAll("Motors LEFT (Smooth)");
     } else if (cmd == "RIGHT") {
       motorRight();
-      ws.textAll("Motors RIGHT");
+      ws.textAll("Motors RIGHT (Smooth)");
     } else if (cmd == "STOP") {
       motorStop();
       ws.textAll("Motors STOP");
@@ -190,7 +212,6 @@ void onWebSocketEvent(AsyncWebSocket* server, AsyncWebSocketClient* client,
       break;
     case WS_EVT_PONG:
     case WS_EVT_ERROR:
-      // Not used in this example
       break;
   }
 }
@@ -199,6 +220,8 @@ void setup() {
   Serial.begin(115200);
 
   // Motor pins as outputs
+  pinMode(ENA, OUTPUT);
+  pinMode(ENB, OUTPUT);
   pinMode(IN1, OUTPUT);
   pinMode(IN2, OUTPUT);
   pinMode(IN3, OUTPUT);
@@ -231,5 +254,5 @@ void setup() {
 }
 
 void loop() {
-  // Nothing special needed here for Async server
+  // Async server, no loop logic needed
 }
