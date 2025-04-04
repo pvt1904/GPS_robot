@@ -34,6 +34,11 @@ const char index_html[] PROGMEM = R"rawliteral(
       font-family: Arial, sans-serif;
       text-align: center;
       background-color: #f4f4f4;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100vh;
+      justify-content: center;
     }
     h1 {
       color: #333;
@@ -42,38 +47,38 @@ const char index_html[] PROGMEM = R"rawliteral(
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 15px;
-      max-width: 400px;
-      margin: auto;
+      width: 200px;
     }
     .btn {
-      width: 100px;
-      height: 60px;
-      font-size: 16px;
+      width: 80px;
+      height: 80px;
+      font-size: 18px;
       font-weight: bold;
       border: none;
-      border-radius: 8px;
+      border-radius: 10px;
       cursor: pointer;
       transition: 0.2s;
     }
     .btn:active {
       transform: scale(0.9);
     }
-    .forward { background: #4CAF50; color: white; }
-    .backward { background: #FF5722; color: white; }
-    .left { background: #2196F3; color: white; }
-    .right { background: #FFC107; color: white; }
-    .stop { background: #F44336; color: white; }
+    .forward { grid-column: 2; background: #4CAF50; color: white; }
+    .left { grid-column: 1; background: #2196F3; color: white; }
+    .stop { grid-column: 2; background: #F44336; color: white; }
+    .right { grid-column: 3; background: #FFC107; color: white; }
+    .backward { grid-column: 2; background: #FF5722; color: white; }
   </style>
 </head>
 <body>
   <h1>ESP32 Motor Control</h1>
+
   <div class="btn-container">
     <button class="btn forward" 
       onmousedown="sendCmd('FORWARD')" 
       onmouseup="sendCmd('STOP')" 
       ontouchstart="sendCmd('FORWARD')" 
       ontouchend="sendCmd('STOP')">
-      FORWARD
+      ↑
     </button>
 
     <button class="btn left" 
@@ -81,15 +86,17 @@ const char index_html[] PROGMEM = R"rawliteral(
       onmouseup="sendCmd('STOP')" 
       ontouchstart="sendCmd('LEFT')" 
       ontouchend="sendCmd('STOP')">
-      LEFT
+      ←
     </button>
+
+    <button class="btn stop" onclick="sendCmd('STOP')">STOP</button>
 
     <button class="btn right" 
       onmousedown="sendCmd('RIGHT')" 
       onmouseup="sendCmd('STOP')" 
       ontouchstart="sendCmd('RIGHT')" 
       ontouchend="sendCmd('STOP')">
-      RIGHT
+      →
     </button>
 
     <button class="btn backward" 
@@ -97,10 +104,8 @@ const char index_html[] PROGMEM = R"rawliteral(
       onmouseup="sendCmd('STOP')" 
       ontouchstart="sendCmd('BACKWARD')" 
       ontouchend="sendCmd('STOP')">
-      BACKWARD
+      ↓
     </button>
-
-    <button class="btn stop" onclick="sendCmd('STOP')">STOP</button>
   </div>
 
   <script>
@@ -116,6 +121,7 @@ const char index_html[] PROGMEM = R"rawliteral(
   </script>
 </body>
 </html>
+
 )rawliteral";
 
 // ---------- Motor Control Functions ----------
