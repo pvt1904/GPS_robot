@@ -73,7 +73,7 @@ const char index_html[] PROGMEM = R"rawliteral(
   <h1>ESP32 Motor Control</h1>
 
   <div class="btn-container">
-    <button class="btn forward" 
+    <button class="btn forward" id="btn-forward"
       onmousedown="sendCmd('FORWARD')" 
       onmouseup="sendCmd('STOP')" 
       ontouchstart="sendCmd('FORWARD')" 
@@ -81,7 +81,7 @@ const char index_html[] PROGMEM = R"rawliteral(
       ↑
     </button>
 
-    <button class="btn left" 
+    <button class="btn left" id="btn-left"
       onmousedown="sendCmd('LEFT')" 
       onmouseup="sendCmd('STOP')" 
       ontouchstart="sendCmd('LEFT')" 
@@ -89,9 +89,9 @@ const char index_html[] PROGMEM = R"rawliteral(
       ←
     </button>
 
-    <button class="btn stop" onclick="sendCmd('STOP')">STOP</button>
+    <button class="btn stop" id="btn-stop" onclick="sendCmd('STOP')">STOP</button>
 
-    <button class="btn right" 
+    <button class="btn right" id="btn-right"
       onmousedown="sendCmd('RIGHT')" 
       onmouseup="sendCmd('STOP')" 
       ontouchstart="sendCmd('RIGHT')" 
@@ -99,7 +99,7 @@ const char index_html[] PROGMEM = R"rawliteral(
       →
     </button>
 
-    <button class="btn backward" 
+    <button class="btn backward" id="btn-backward"
       onmousedown="sendCmd('BACKWARD')" 
       onmouseup="sendCmd('STOP')" 
       ontouchstart="sendCmd('BACKWARD')" 
@@ -118,6 +118,30 @@ const char index_html[] PROGMEM = R"rawliteral(
       console.log('Sending command:', cmd);
       socket.send(cmd);
     }
+
+    // ----- Handle Keyboard Controls -----
+    document.addEventListener("keydown", (event) => {
+      if (event.repeat) return; // Ignore repeated key presses
+
+      switch (event.key) {
+        case "ArrowUp":
+          sendCmd("FORWARD");
+          break;
+        case "ArrowDown":
+          sendCmd("BACKWARD");
+          break;
+        case "ArrowLeft":
+          sendCmd("LEFT");
+          break;
+        case "ArrowRight":
+          sendCmd("RIGHT");
+          break;
+      }
+    });
+
+    document.addEventListener("keyup", () => {
+      sendCmd("STOP"); // Stop when the key is released
+    });
   </script>
 </body>
 </html>
