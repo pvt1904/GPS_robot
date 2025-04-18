@@ -1,7 +1,8 @@
 #include <QMC5883LCompass.h>
 
 QMC5883LCompass compass;
-
+//SCL pin 22
+//SDA pin 21
 void setup() {
   Serial.begin(115200);
   compass.init();
