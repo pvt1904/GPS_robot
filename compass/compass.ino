@@ -1,39 +1,31 @@
+#include <Wire.h>
 #include <QMC5883LCompass.h>
 
 QMC5883LCompass compass;
-//SCL pin 22
-//SDA pin 21
-void setup() {
-  Serial.begin(115200);
+
+
+void compass_setup(){
+  Wire.begin();
+  Wire.setClock(400000);
   compass.init();
-  
-  // Apply smoothing for more stable readings
-  compass.setSmoothing(10, true);  
+  compass.setMode(0x01, 0x0C, 0x00, 0xC0);   // Continuous | 200 Hz | 2 g | OSR 64
+  compass.setSmoothing(3, false);            // smooth data
+}
+
+float heading;
+void compass_read() {
+  compass.read();
+  heading = atan2(compass.getY(), compass.getX()) * 180.0 / PI;
+  if (heading < 0) heading += 360;
+}
+
+void setup() {
+
+  Serial.begin(115200);
+
 }
 
 void loop() {
-  // Read compass values
-  compass.read();
-
-  // Get XYZ magnetometer readings
-  int x = compass.getX();
-  int y = compass.getY();
-  int z = compass.getZ();
-
-  // Compute heading angle (in degrees)
-  float heading = atan2(y, x) * 180.0 / PI;
-
-  // Ensure heading is in range [0, 360]
-  if (heading < 0) {
-    heading += 360;
-  }
-
-  // Print the values
-  Serial.print("X: "); Serial.print(x);
-  Serial.print("  Y: "); Serial.print(y);
-  Serial.print("  Z: "); Serial.print(z);
-  Serial.print("  Heading: "); Serial.print(heading);
-  Serial.println("°");
-
-  delay(250);
+  Serial.printf("Heading: %.1f°\n", heading);
+  delay(100);  
 }
